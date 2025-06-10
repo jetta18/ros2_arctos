@@ -49,7 +49,7 @@ arctos_hardware_interface:
       X_joint:
         motor_id: 1
         requires_homing: false
-        inverted: true
+        inverted: false
         gear_ratio: 13.5
         hardware_type: MKS_57D
 
@@ -68,7 +68,7 @@ arctos_hardware_interface:
       Z_joint:
         motor_id: 3
         requires_homing: false
-        inverted: true
+        inverted: false
         gear_ratio: 150.0
         hardware_type: MKS_42D
         zero_position: 0.6106061658871725
@@ -77,12 +77,12 @@ arctos_hardware_interface:
       A_joint:
         motor_id: 4
         requires_homing: false
-        inverted: false
+        inverted: true
         gear_ratio: 48.0
         hardware_type: MKS_42D
         zero_position: 1.4139467912335897
-        home_position: 1.6729258914383454
-        opposite_limit: -1.4136671593191314
+        home_position: -1.4136671593191314
+        opposite_limit: 1.6729258914383454
       B_joint:
         motor_id: 5
         requires_homing: false

@@ -7,6 +7,7 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Comm
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
 import os
+from moveit_configs_utils import MoveItConfigsBuilder
 
 
 def generate_launch_description():
@@ -56,9 +57,9 @@ def generate_launch_description():
         output={'stdout': 'screen', 'stderr': 'screen'},
         arguments=[
             '--ros-args',
-            # '--log-level', 'debug',
-            '--log-level', 'arctos_hardware_interface:=debug',
-            '--log-level', 'controller_manager:=debug'
+            # # '--log-level', 'debug',
+            # '--log-level', 'arctos_hardware_interface:=debug',
+            # '--log-level', 'controller_manager:=debug'
         ],
     )
 
@@ -88,6 +89,8 @@ def generate_launch_description():
         )
     )
 
+    moveit_config = MoveItConfigsBuilder("arctos", package_name="arctos_moveit_config").to_moveit_configs()
+
     # RViz Node
     rviz_node = Node(
         package="rviz2",
@@ -95,6 +98,9 @@ def generate_launch_description():
         name="rviz2",
         output="screen",
         arguments=["-d", rviz_config_file],
+        parameters=[
+            moveit_config.to_dict(),
+        ],
     )
 
     # Ensure joint state broadcaster starts before controllers

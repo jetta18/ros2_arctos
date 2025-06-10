@@ -20,6 +20,10 @@ ArctosInterface::ArctosInterface()
   motor_driver_ = std::make_shared<arctos_motor_driver::MotorDriver>(node_);
   motor_driver_->setCAN(can_protocol_);
 
+  // Initialize tolerance values
+  position_tolerance_ = 0.001;  // Radians
+  velocity_tolerance_ = 0.001;  // Radians/second
+
   can_sub_ = node_->create_subscription<can_msgs::msg::Frame>(
       "/from_motor_can_bus", 10,
       std::bind(&ArctosInterface::canCallback, this, std::placeholders::_1));
@@ -71,6 +75,7 @@ CallbackReturn ArctosInterface::on_init(const hardware_interface::HardwareInfo &
     node_->declare_parameter(param_prefix + "requires_homing", false);   // Default no homing needed
     node_->declare_parameter(param_prefix + "home_position", 0.0);
     node_->declare_parameter(param_prefix + "opposite_limit", 0.0);
+    node_->declare_parameter(param_prefix + "inverted", false);   // Default not inverted
 
     // Get motor ID from parameters
     int motor_id;
@@ -245,25 +250,25 @@ return_type ArctosInterface::read(const rclcpp::Time & time, const rclcpp::Durat
   for (size_t i = 0; i < info_.joints.size(); i++) {
       const std::string &joint_name = info_.joints[i].name;
       try {
-          RCLCPP_DEBUG(node_->get_logger(), "Reading state for joint %s", joint_name.c_str());
+          // RCLCPP_DEBUG(node_->get_logger(), "Reading state for joint %s", joint_name.c_str());
 
           if (has_position_interface_) {
               double pos = motor_driver_->getJointPosition(joint_name);
               joint_position_[i] = pos;
-              RCLCPP_DEBUG(node_->get_logger(), "Updated position for joint %s: %.3f", joint_name.c_str(), pos);
+              // RCLCPP_DEBUG(node_->get_logger(), "Updated position for joint %s: %.3f", joint_name.c_str(), pos);
           }
 
           if (has_velocity_interface_) {
               double vel = motor_driver_->getJointVelocity(joint_name);
               joint_velocities_[i] = vel;
-              RCLCPP_DEBUG(node_->get_logger(), "Updated velocity for joint %s: %.3f", joint_name.c_str(), vel);
+              // RCLCPP_DEBUG(node_->get_logger(), "Updated velocity for joint %s: %.3f", joint_name.c_str(), vel);
           }
 
           rclcpp::Duration time_since_update = motor_driver_->getTimeSinceLastUpdate(joint_name);
           if (time_since_update.seconds() > 1.0) {
-              RCLCPP_WARN(node_->get_logger(),
-                          "Stale data for joint %s: %.3f seconds since last update",
-                          joint_name.c_str(), time_since_update.seconds());
+              // RCLCPP_WARN(node_->get_logger(),
+              //             "Stale data for joint %s: %.3f seconds since last update",
+              //             joint_name.c_str(), time_since_update.seconds());
           }
       } catch (const std::exception &e) {
           RCLCPP_ERROR(node_->get_logger(), "Failed to read state from joint %s: %s",
@@ -295,28 +300,28 @@ return_type ArctosInterface::write(const rclcpp::Time & /*time*/, const rclcpp::
                       last_position_command_[i]);
           last_position_command_[i] = joint_position_command_[i];
         } else {
-          RCLCPP_DEBUG(node_->get_logger(),
-                       "Position command for joint %s unchanged: %.3f",
-                       info_.joints[i].name.c_str(), joint_position_command_[i]);
+          // RCLCPP_DEBUG(node_->get_logger(),
+          //              "Position command for joint %s unchanged: %.3f",
+          //              info_.joints[i].name.c_str(), joint_position_command_[i]);
         }
       }
 
-      if (has_velocity_interface_) {
-        // TODO: Ensure this works properly
-        // Only send if velocity has changed significantly
-        if (std::abs(joint_velocities_command_[i] - last_velocity_command_[i]) > velocity_tolerance_) {
-          motor_driver_->setJointVelocity(info_.joints[i].name, joint_velocities_command_[i]);
-          RCLCPP_INFO(node_->get_logger(),
-                      "Sent velocity command %.3f to joint %s. Last command: %.3f",
-                      joint_velocities_command_[i], info_.joints[i].name.c_str(),
-                      last_velocity_command_[i]);
-          last_velocity_command_[i] = joint_velocities_command_[i];
-        } else {
-          RCLCPP_DEBUG(node_->get_logger(),
-                       "Velocity command for joint %s unchanged: %.3f",
-                       info_.joints[i].name.c_str(), joint_velocities_command_[i]);
-        }
-      }
+      // if (has_velocity_interface_) {
+      //   // TODO: Ensure this works properly
+      //   // Only send if velocity has changed significantly
+      //   if (std::abs(joint_velocities_command_[i] - last_velocity_command_[i]) > velocity_tolerance_) {
+      //     motor_driver_->setJointVelocity(info_.joints[i].name, joint_velocities_command_[i]);
+      //     RCLCPP_INFO(node_->get_logger(),
+      //                 "Sent velocity command %.3f to joint %s. Last command: %.3f",
+      //                 joint_velocities_command_[i], info_.joints[i].name.c_str(),
+      //                 last_velocity_command_[i]);
+      //     last_velocity_command_[i] = joint_velocities_command_[i];
+      //   } else {
+      //     // RCLCPP_DEBUG(node_->get_logger(),
+      //     //              "Velocity command for joint %s unchanged: %.3f",
+      //     //              info_.joints[i].name.c_str(), joint_velocities_command_[i]);
+      //   }
+      // }
     } catch (const std::exception& e) {
       RCLCPP_ERROR(node_->get_logger(),
                    "Failed to write command to joint %s: %s",
@@ -354,8 +359,15 @@ void ArctosInterface::initializeMotors() {
           gear_ratio = 1.0;
       }
 
-      // Add joint to motor driver with gear ratio
-      motor_driver_->addJoint(joint.name, motor_id, hardware_type, gear_ratio);
+      bool inverted;
+      if (!node_->get_parameter(param_prefix + "inverted", inverted)) {
+          RCLCPP_WARN(node_->get_logger(), "No inverted status specified for joint %s, using false", 
+                      joint.name.c_str());
+          inverted = false;
+      }
+
+      // Add joint to motor driver with gear ratio and inverted status
+      motor_driver_->addJoint(joint.name, motor_id, hardware_type, gear_ratio, inverted);
 
       // Configure motor parameters
       if (!setupMotorParameters(joint, motor_id)) {

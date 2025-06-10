@@ -319,7 +319,7 @@ double MotorDriver::getJointPosition(const std::string& joint_name) const {
         RCLCPP_ERROR(node_->get_logger(), "Joint %s not found", joint_name.c_str());
         return 0.0;
     }
-    RCLCPP_DEBUG(node_->get_logger(), "Retrieved position for joint %s: %.3f", joint_name.c_str(), it->second.position);
+    // RCLCPP_DEBUG(node_->get_logger(), "Retrieved position for joint %s: %.3f", joint_name.c_str(), it->second.position);
     return it->second.position;
 }
 
@@ -338,7 +338,7 @@ double MotorDriver::getJointVelocity(const std::string& joint_name) const {
         RCLCPP_ERROR(node_->get_logger(), "Joint %s not found", joint_name.c_str());
         return 0.0;
     }
-    RCLCPP_DEBUG(node_->get_logger(), "Retrieved velocity for joint %s: %.3f", joint_name.c_str(), it->second.velocity);
+    // RCLCPP_DEBUG(node_->get_logger(), "Retrieved velocity for joint %s: %.3f", joint_name.c_str(), it->second.velocity);
     return it->second.velocity;
 }
 
@@ -588,7 +588,7 @@ bool MotorDriver::isMotorReady(const std::string& joint_name) const {
 //     RCLCPP_INFO(node_->get_logger(), "updateJointStates is running...");
 // }
 void MotorDriver::updateJointStates() {
-    RCLCPP_WARN(node_->get_logger(), "[updateJointStates] Starting joint state update cycle");
+    // RCLCPP_WARN(node_->get_logger(), "[updateJointStates] Starting joint state update cycle");
 
     auto current_time = node_->get_clock()->now();
     if (joints_.empty()) {

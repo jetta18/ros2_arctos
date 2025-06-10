@@ -7,6 +7,8 @@
 
       <hardware>
         <plugin>arctos_interface/ArctosInterface</plugin>
+        <param name="motor_config">$(find arctos_moveit_config)/config/ros2_controllers.yaml</param>
+        <param name="can_config">$(find arctos_moveit_config)/config/ros2_controllers.yaml</param>
       </hardware>
 
       <joint name="X_joint">
