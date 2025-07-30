@@ -134,7 +134,8 @@ struct CANCommands {
     // Set/Control commands
     static constexpr uint8_t CALIBRATE = 0x80; /**< Calibrate command. */
     static constexpr uint8_t SET_WORKING_MODE = 0x82; /**< Set working mode command. */
-    static constexpr uint8_t SET_CURRENT = 0x83; /**< Set current command. */
+    static constexpr uint8_t SET_CURRENT = 0x83; /**< Set working current command. */
+    static constexpr uint8_t SET_HOLDING_CURRENT = 0x9B; /**< Set holding current percentage command. */
     static constexpr uint8_t SET_SUBDIVISIONS = 0x84; /**< Set subdivisions command. */
     static constexpr uint8_t SET_ENABLE_SETTINGS = 0x85; /**< Set enable settings command. */
     static constexpr uint8_t SET_DIRECTION = 0x86; /**< Set direction command. */

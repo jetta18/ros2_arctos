@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <thread>
 
 using hardware_interface::return_type;
 using hardware_interface::CallbackReturn;
@@ -67,8 +68,8 @@ CallbackReturn ArctosInterface::on_init(const hardware_interface::HardwareInfo &
     
     // Declare parameters for this joint
     node_->declare_parameter(param_prefix + "motor_id", -1);             // Motor/CAN ID
-    // node_->declare_parameter(param_prefix + "working_current", 1600); // Default 1.6A
-    // node_->declare_parameter(param_prefix + "holding_current", 50);   // Default 50%
+    node_->declare_parameter(param_prefix + "working_current", 1600); // Default 1.6A
+    node_->declare_parameter(param_prefix + "holding_current", 50);   // Default 50%
     // node_->declare_parameter(param_prefix + "home_current", 800);     // Default 0.8A for homing
     node_->declare_parameter(param_prefix + "hardware_type", "MKS_42D"); // Default MKS Servo
     node_->declare_parameter(param_prefix + "gear_ratio", 1.0);          // Default 1:1 gear ratio
@@ -76,6 +77,7 @@ CallbackReturn ArctosInterface::on_init(const hardware_interface::HardwareInfo &
     node_->declare_parameter(param_prefix + "home_position", 0.0);
     node_->declare_parameter(param_prefix + "opposite_limit", 0.0);
     node_->declare_parameter(param_prefix + "inverted", false);   // Default not inverted
+    node_->declare_parameter(param_prefix + "limit_port_remap", true);  // Enable limit remap by default
 
     // Get motor ID from parameters
     int motor_id;
@@ -96,6 +98,7 @@ CallbackReturn ArctosInterface::on_init(const hardware_interface::HardwareInfo &
 
     // Track available interfaces
     for (const auto & interface : joint.state_interfaces) {
+      RCLCPP_INFO(node_->get_logger(), "Joint '%s' has state interface '%s'", joint.name.c_str(), interface.name.c_str());
       joint_interfaces[interface.name].push_back(joint.name);
       if (interface.name == "position") has_position_interface_ = true;
       if (interface.name == "velocity") has_velocity_interface_ = true;
@@ -126,14 +129,45 @@ CallbackReturn ArctosInterface::on_activate(const rclcpp_lifecycle::State & prev
   for (size_t i = 0; i < info_.joints.size(); i++) {
     try {
       const auto& joint_name = info_.joints[i].name;
+      std::string param_prefix = "motors." + joint_name + ".";
       
       RCLCPP_INFO(node_->get_logger(), "Enabling motor for joint %s", joint_name.c_str());
       // Enable the motor first
       motor_driver_->enableMotor(joint_name);
+      RCLCPP_INFO(node_->get_logger(), "Motor enable command sent for joint %s", joint_name.c_str());
+
+      // Set working and holding currents
+      int working_current;
+      if (node_->get_parameter(param_prefix + "working_current", working_current)) {
+        motor_driver_->setWorkingCurrent(joint_name, static_cast<uint16_t>(working_current));
+      }
+      int holding_current;
+      if (node_->get_parameter(param_prefix + "holding_current", holding_current)) {
+        motor_driver_->setHoldingCurrent(joint_name, static_cast<uint8_t>(holding_current));
+      }
       
+      // Apply limit port remap for 42D motors if requested
+      std::string hardware_type;
+      if (node_->get_parameter(param_prefix + "hardware_type", hardware_type)) {
+        RCLCPP_INFO(node_->get_logger(), "Hardware type for %s: %s", joint_name.c_str(), hardware_type.c_str());
+        bool limit_remap = true;
+        node_->get_parameter(param_prefix + "limit_port_remap", limit_remap);
+        RCLCPP_INFO(node_->get_logger(), "Limit remap for %s: %s", joint_name.c_str(), limit_remap ? "true" : "false");
+        if (limit_remap && hardware_type.find("MKS_42D") != std::string::npos) {
+          RCLCPP_INFO(node_->get_logger(), "Sending limit port remap command for %s", joint_name.c_str());
+          motor_driver_->setLimitPortRemap(joint_name, true);
+          // Small delay to ensure command is transmitted
+          std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        } else {
+          RCLCPP_INFO(node_->get_logger(), "Skipping limit remap for %s (limit_remap=%s, hardware_type=%s)", 
+                      joint_name.c_str(), limit_remap ? "true" : "false", hardware_type.c_str());
+        }
+      } else {
+        RCLCPP_WARN(node_->get_logger(), "No hardware_type parameter found for %s", joint_name.c_str());
+      }
+
       // Check if homing is required
       bool requires_homing = false;
-      std::string param_prefix = "motors." + joint_name + ".";
       if (node_->get_parameter(param_prefix + "requires_homing", requires_homing) && requires_homing) {
         RCLCPP_INFO(node_->get_logger(), "Starting homing sequence for joint %s", joint_name.c_str());
         
@@ -196,6 +230,7 @@ CallbackReturn ArctosInterface::on_deactivate(const rclcpp_lifecycle::State & pr
 
 std::vector<hardware_interface::StateInterface> ArctosInterface::export_state_interfaces()
 {
+  RCLCPP_INFO(node_->get_logger(), "Exporting state interfaces...");
   std::vector<hardware_interface::StateInterface> state_interfaces;
 
   // Add joint state interfaces
@@ -203,10 +238,12 @@ std::vector<hardware_interface::StateInterface> ArctosInterface::export_state_in
     if (has_position_interface_) {
       state_interfaces.emplace_back(
         info_.joints[i].name, hardware_interface::HW_IF_POSITION, &joint_position_[i]);
+      RCLCPP_INFO(node_->get_logger(), "Exported 'position' state interface for %s", info_.joints[i].name.c_str());
     }
     if (has_velocity_interface_) {
       state_interfaces.emplace_back(
         info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &joint_velocities_[i]);
+      RCLCPP_INFO(node_->get_logger(), "Exported 'velocity' state interface for %s", info_.joints[i].name.c_str());
     }
   }
 
@@ -255,6 +292,7 @@ return_type ArctosInterface::read(const rclcpp::Time & time, const rclcpp::Durat
           if (has_position_interface_) {
               double pos = motor_driver_->getJointPosition(joint_name);
               joint_position_[i] = pos;
+              RCLCPP_INFO(node_->get_logger(), "Read cycle - joint %s position: %.4f rad", joint_name.c_str(), pos);
               // RCLCPP_DEBUG(node_->get_logger(), "Updated position for joint %s: %.3f", joint_name.c_str(), pos);
           }
 
@@ -370,7 +408,7 @@ void ArctosInterface::initializeMotors() {
       motor_driver_->addJoint(joint.name, motor_id, hardware_type, gear_ratio, inverted);
 
       // Configure motor parameters
-      if (!setupMotorParameters(joint, motor_id)) {
+      if (!setupMotorParameters(joint)) {
           throw std::runtime_error("Failed to configure motor for joint " + joint.name);
       }
 
@@ -380,29 +418,20 @@ void ArctosInterface::initializeMotors() {
 }
 
 bool ArctosInterface::setupMotorParameters(
-  const hardware_interface::ComponentInfo& joint_info, uint8_t motor_id)
+  const hardware_interface::ComponentInfo& joint_info)
 {
   try {
     // Set working mode (default to SR_vFOC)
     motor_driver_->setWorkingMode(joint_info.name, MotorMode::SR_vFOC);
 
-    // Get working current from parameters
-    // int working_current;
-    // std::string param_prefix = "motors." + joint_info.name + ".";
-    // if (node_->get_parameter(param_prefix + "working_current", working_current)) {
-    //   motor_driver_->setWorkingCurrent(joint_info.name, static_cast<uint16_t>(working_current));
-    // }
+    std::string param_prefix = "motors." + joint_info.name + ".";
 
-    // // Get holding current from parameters
-    // int holding_current;
-    // if (node_->get_parameter(param_prefix + "holding_current", holding_current)) {
-    //   motor_driver_->setHoldingCurrent(joint_info.name, static_cast<uint8_t>(holding_current));
-    // }
+
+    
     double gear_ratio;
     double home_position;
     double opposite_limit;
     double max_rpm = 3000.0;
-    std::string param_prefix = "motors." + joint_info.name + ".";
 
     // Get gear ratio from parameters
     if (!node_->get_parameter(param_prefix + "gear_ratio", gear_ratio)) {

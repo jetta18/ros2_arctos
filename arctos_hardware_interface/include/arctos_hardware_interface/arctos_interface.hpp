@@ -84,7 +84,7 @@ private:
   
   // Helper functions for motor initialization
   void initializeMotors();
-  bool setupMotorParameters(const hardware_interface::ComponentInfo& joint_info, uint8_t motor_id);
+  bool setupMotorParameters(const hardware_interface::ComponentInfo& joint_info);
 };
 
 }  // namespace arctos_interface

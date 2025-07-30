@@ -159,6 +159,21 @@ public:
     void setHoldingCurrent(const std::string& joint_name, uint8_t percentage);
 
     /**
+     * @brief Enable or disable limit port remapping on a motor.
+     *
+     * 42D/57D drivers can remap the single limit port so that both left
+     * and right limit switches are available when driven via CAN/serial.
+     * This sends CAN command 0x9E with a single byte payload:
+     *   0x01 → enable remap (Left→EN, Right→DIR)
+     *   0x00 → disable remap
+     *
+     * @param joint_name  Name of the joint whose motor should be configured.
+     * @param enable      True to enable remap, false to disable.
+     */
+    void setLimitPortRemap(const std::string& joint_name, bool enable);
+
+
+    /**
      * @brief Sets the limits of a joint.
      * @param joint_name The name of the joint.
      * @param pos_min The minimum position.

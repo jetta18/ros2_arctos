@@ -31,6 +31,7 @@ public:
 
 protected:
     rclcpp::Publisher<can_msgs::msg::Frame>::SharedPtr can_pub_;
+    rclcpp::Node::SharedPtr node_;
 };
 
 } // namespace arctos_motor_driver

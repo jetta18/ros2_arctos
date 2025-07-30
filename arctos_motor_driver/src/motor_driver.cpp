@@ -137,58 +137,6 @@ void MotorDriver::setJointPosition(const std::string& joint_name, double positio
         position = -position;
     }
 
-    // if (joint_name == "C_joint") {
-    //     // Motor C moves forward
-    //     double motor_c_position = position * joint.gear_ratio;
-    //     // Motor B moves in reverse
-    //     double motor_b_position = -motor_c_position;
-
-    //     // Convert positions to encoder counts
-    //     int32_t encoder_counts_c = static_cast<int32_t>(
-    //         (motor_c_position * MotorConstants::ENCODER_STEPS) / MotorConstants::DEGREES_PER_REVOLUTION
-    //     );
-    //     int32_t encoder_counts_b = static_cast<int32_t>(
-    //         (motor_b_position * MotorConstants::ENCODER_STEPS) / MotorConstants::DEGREES_PER_REVOLUTION
-    //     );
-
-    //     uint8_t acc_value = static_cast<uint8_t>(std::clamp(acceleration, 0.0, 255.0));
-    //     uint16_t speed = 100;  // Default speed in RPM
-
-    //     // Prepare CAN command for motor C
-    //     std::vector<uint8_t> data_c = {
-    //         CANCommands::ABSOLUTE_POSITION,
-    //         static_cast<uint8_t>((speed >> 8) & 0xFF),  // Speed high byte
-    //         static_cast<uint8_t>(speed & 0xFF),         // Speed low byte
-    //         acc_value,                                  // Acceleration
-    //         static_cast<uint8_t>((encoder_counts_c >> 16) & 0xFF),  // Position high byte
-    //         static_cast<uint8_t>((encoder_counts_c >> 8) & 0xFF),   // Position middle byte
-    //         static_cast<uint8_t>(encoder_counts_c & 0xFF)           // Position low byte
-    //     };
-
-    //     // Prepare CAN command for motor B
-    //     std::vector<uint8_t> data_b = {
-    //         CANCommands::ABSOLUTE_POSITION,
-    //         static_cast<uint8_t>((speed >> 8) & 0xFF),  // Speed high byte
-    //         static_cast<uint8_t>(speed & 0xFF),         // Speed low byte
-    //         acc_value,                                  // Acceleration
-    //         static_cast<uint8_t>((encoder_counts_b >> 16) & 0xFF),  // Position high byte
-    //         static_cast<uint8_t>((encoder_counts_b >> 8) & 0xFF),   // Position middle byte
-    //         static_cast<uint8_t>(encoder_counts_b & 0xFF)           // Position low byte
-    //     };
-
-    //     // Send CAN commands
-    //     can_protocol_->sendFrame(6, data_c);  // Motor C (CAN ID 6)
-    //     can_protocol_->sendFrame(5, data_b);  // Motor B (CAN ID 5)
-
-    //     // Update joint state
-    //     joint.command_position = position;
-    //     joint.last_command = node_->get_clock()->now();
-
-    //     RCLCPP_INFO(node_->get_logger(), "Joint C: Motor C set to %.2f degrees, Motor B set to %.2f degrees",
-    //                 motor_c_position, motor_b_position);
-    //     return;
-    // }
-    // Scale the position by the gear ratio
     double motor_position = position * joint.gear_ratio;
 
     // Convert motor position from radians to degrees
@@ -485,12 +433,31 @@ void MotorDriver::setHoldingCurrent(const std::string& joint_name, uint8_t perce
         return;
     }
 
-    percentage = std::clamp(percentage, uint8_t(10), uint8_t(90));
+    percentage = std::clamp(percentage, static_cast<uint8_t>(10), static_cast<uint8_t>(90));
     uint8_t holding_value = (percentage - 10) / 10;  // Convert to 0-8 range
 
-    std::vector<uint8_t> data = {0x9B, holding_value};
+    std::vector<uint8_t> data = {CANCommands::SET_HOLDING_CURRENT, holding_value};
     can_protocol_->sendFrame(it->second.motor_id, data);
     it->second.params.holding_current_percentage = percentage;
+}
+
+/**
+ * @brief Enable or disable limit port remap for a joint's motor (command 0x9E).
+ */
+void MotorDriver::setLimitPortRemap(const std::string& joint_name, bool enable) {
+    auto it = joints_.find(joint_name);
+    if (it == joints_.end()) {
+        RCLCPP_ERROR(node_->get_logger(), "[setLimitPortRemap] Joint %s not found", joint_name.c_str());
+        return;
+    }
+
+    uint8_t value = enable ? 0x01 : 0x00;
+    std::vector<uint8_t> data = {0x9E, value};
+
+    RCLCPP_INFO(node_->get_logger(), "Setting limit port remap %s for joint %s (motor ID %d)",
+                enable ? "ON" : "OFF", joint_name.c_str(), it->second.motor_id);
+
+    can_protocol_->sendFrame(it->second.motor_id, data);
 }
 
 /**

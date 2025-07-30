@@ -1,14 +1,25 @@
 #include "arctos_motor_driver/can_protocol.hpp"
 #include "arctos_motor_driver/motor_types.hpp"
 #include <cmath>
+#include <chrono>
+#include <thread>
 
 namespace arctos_motor_driver {
 
-CANProtocol::CANProtocol(rclcpp::Node::SharedPtr node) {
+CANProtocol::CANProtocol(rclcpp::Node::SharedPtr node) : node_(node) {
     can_pub_ = node->create_publisher<can_msgs::msg::Frame>("/to_motor_can_bus", 10);
 }
 
 void CANProtocol::sendFrame(uint8_t motor_id, const std::vector<uint8_t>& data) {
+    auto start_time = node_->get_clock()->now();
+    while (can_pub_->get_subscription_count() == 0) {
+        if ((node_->get_clock()->now() - start_time).seconds() > 2.0) {
+            RCLCPP_ERROR(node_->get_logger(), "Timed out waiting for subscriber to /to_motor_can_bus");
+            break;
+        }
+        RCLCPP_INFO(node_->get_logger(), "Waiting for subscriber to /to_motor_can_bus...");
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     auto msg = std::make_shared<can_msgs::msg::Frame>();
     msg->id = motor_id;
     msg->dlc = static_cast<uint8_t>(data.size() + 1);  // +1 for CRC byte
@@ -29,6 +40,7 @@ void CANProtocol::sendFrame(uint8_t motor_id, const std::vector<uint8_t>& data) 
     // Add CRC as last byte
     msg->data[data.size()] = static_cast<uint8_t>(crc);
     
+    RCLCPP_INFO(node_->get_logger(), "[sendFrame] TX ID:%d CMD:0x%02X (len %zu)", motor_id, data.empty()?0:data[0], data.size());
     can_pub_->publish(*msg);
 }
 
