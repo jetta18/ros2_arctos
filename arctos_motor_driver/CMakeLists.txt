@@ -13,9 +13,32 @@ find_package(rclcpp REQUIRED)
 find_package(can_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
+# Create library for CAN frame and data types
+add_library(can_frame SHARED
+  src/can_frame.cpp
+  src/mks_data_types.cpp
+)
+
+target_include_directories(can_frame
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+target_compile_features(can_frame PUBLIC cxx_std_17)
+
+ament_target_dependencies(can_frame
+  rclcpp
+  can_msgs
+)
+
 # Create library for CAN protocol
 add_library(can_protocol SHARED
   src/can_protocol.cpp
+)
+
+target_link_libraries(can_protocol
+  can_frame
 )
 
 target_include_directories(can_protocol
@@ -35,30 +58,79 @@ ament_target_dependencies(can_protocol
   can_msgs
 )
 
-# Create the main motor driver library
-add_library(${PROJECT_NAME} SHARED
-  src/motor_driver.cpp
+# Create library for SocketCAN bridge
+add_library(socket_can_bridge SHARED
+  src/socket_can_bridge.cpp
 )
 
-# Link against CAN protocol library and Threads
-target_link_libraries(${PROJECT_NAME}
-  can_protocol
+target_link_libraries(socket_can_bridge
   Threads::Threads
 )
 
-target_include_directories(${PROJECT_NAME}
+target_include_directories(socket_can_bridge
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)  # Explicitly set C++17
+target_compile_features(socket_can_bridge PUBLIC cxx_std_17)
 
-ament_target_dependencies(${PROJECT_NAME}
+ament_target_dependencies(socket_can_bridge
+  rclcpp
+  can_msgs
+)
+
+# Create the new MKS motor driver library
+add_library(mks_motor_driver SHARED
+  src/mks_motor_driver.cpp
+)
+
+target_link_libraries(mks_motor_driver
+  socket_can_bridge
+  can_protocol
+  can_frame
+  Threads::Threads
+)
+
+target_include_directories(mks_motor_driver
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+target_compile_features(mks_motor_driver PUBLIC cxx_std_17)
+
+ament_target_dependencies(mks_motor_driver
   rclcpp
   can_msgs
   sensor_msgs
 )
+
+# Create the main motor driver library (legacy) - TEMPORARILY DISABLED
+# add_library(${PROJECT_NAME} SHARED
+#   src/motor_driver.cpp
+# )
+# 
+# # Link against CAN protocol library and Threads
+# target_link_libraries(${PROJECT_NAME}
+#   can_protocol
+#   can_frame
+#   Threads::Threads
+# )
+# 
+# target_include_directories(${PROJECT_NAME}
+#   PUBLIC
+#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+#     $<INSTALL_INTERFACE:include>
+# )
+# 
+# target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)  # Explicitly set C++17
+# 
+# ament_target_dependencies(${PROJECT_NAME}
+#   rclcpp
+#   can_msgs
+#   sensor_msgs
+# )
 
 # Testing
 # if(BUILD_TESTING)
@@ -119,8 +191,11 @@ ament_target_dependencies(${PROJECT_NAME}
 
 # Install targets
 install(TARGETS 
+    socket_can_bridge
+    can_frame
     can_protocol
-    ${PROJECT_NAME}
+    mks_motor_driver
+    # ${PROJECT_NAME}  # Temporarily disabled
   EXPORT export_${PROJECT_NAME}
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib

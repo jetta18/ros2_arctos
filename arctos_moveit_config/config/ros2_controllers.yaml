@@ -1,10 +1,9 @@
 controller_manager:
   ros__parameters:
-    update_rate: 50  # Hz
+    update_rate: 100  # Hz
 
     joint_trajectory_controller:
       type: joint_trajectory_controller/JointTrajectoryController
-
 
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
@@ -18,86 +17,98 @@ joint_trajectory_controller:
     - A_joint
     - B_joint
     - C_joint
+
     command_interfaces:
     - position
     - velocity
+
     state_interfaces:
     - position
     - velocity
 
-    state_publish_rate: 25.0
-    action_monitor_rate: 10.0
+    state_publish_rate: 50.0
+    action_monitor_rate: 20.0
 
     allow_partial_joints_goal: true
     state_tolerance_check: false  # Disable tolerance checking for simplicity
-
-    # constraints:
-    #   stopped_velocity_tolerance: 0.10
-    #   goal_time: 20.0  # Allow more time to reach the goal
-    #   X_joint: { trajectory: 0.30, goal: 0.20 }
-    #   Y_joint: { trajectory: 0.30, goal: 0.20 }
-    #   Z_joint: { trajectory: 0.30, goal: 0.20 }
-
-    # path_tolerance:
-    #   X_joint: 0.50
-    #   Y_joint: 0.50
-    #   Z_joint: 0.50
 
 arctos_hardware_interface:
   ros__parameters:
     motors:
       X_joint:
         motor_id: 1
-        requires_homing: false
+        requires_homing: true
         inverted: false
         gear_ratio: 13.5
         hardware_type: MKS_57D
-
-        zero_position: 2.9319486125787555
-        home_position: -0.0
-        opposite_limit: 5.90662143080529
+        zero_position: 3.0348389535736033
+        home_position: -3.028106482337883
+        opposite_limit: 2.7484106520134013
+        working_current: 2600
+        holding_current: 70
+        limit_remap_enabled: false
+        
       Y_joint:
         motor_id: 2
-        requires_homing: false
+        requires_homing: true
         inverted: true
         gear_ratio: 150.0
         hardware_type: MKS_57D
-        zero_position: 0.8375560668202066
-        home_position: -0.0
-        opposite_limit: 2.783916909913145
+        zero_position: 0.8549028328965467
+        home_position: -0.8539415382694717
+        opposite_limit: 2.0056236341982534
+        working_current: 2600
+        holding_current: 70
+        limit_remap_enabled: false
+      
       Z_joint:
         motor_id: 3
-        requires_homing: false
-        inverted: false
+        requires_homing: true
+        inverted: true
         gear_ratio: 150.0
         hardware_type: MKS_42D
-        zero_position: 0.6106061658871725
-        home_position: -0.6114115058008125
-        opposite_limit: 1.5502639939490475
+        zero_position: 0.6805250101989999
+        home_position: -0.6796301880727333
+        opposite_limit: 1.6709090262816064
+        working_current: 1800
+        holding_current: 70
+        limit_remap_enabled: true
+      
       A_joint:
         motor_id: 4
         requires_homing: false
         inverted: true
         gear_ratio: 48.0
         hardware_type: MKS_42D
-        zero_position: 1.4139467912335897
-        home_position: -1.4136671593191314
-        opposite_limit: 1.6729258914383454
+        zero_position: 0.6805250101989999
+        home_position: -0.6796301880727333
+        opposite_limit: 1.6709090262816064
+        working_current: 1400
+        holding_current: 70
+        limit_remap_enabled: true
+      
       B_joint:
         motor_id: 5
         requires_homing: false
         inverted: true
-        gear_ratio: 67.82
+        gear_ratio: 27.3375
         hardware_type: MKS_42D
-        zero_position: -0.6633810973620605
-        home_position: -0.7665436802807631
-        opposite_limit: -0.0
+        zero_position: -0.43627526433400465
+        home_position: 0.22467435360166688
+        opposite_limit: -0.4228851636789132
+        working_current: 1400
+        holding_current: 70
+        limit_remap_enabled: true
+      
       C_joint:
         motor_id: 6
         requires_homing: false
         inverted: true
-        gear_ratio: 10.0
+        gear_ratio: 10
         hardware_type: MKS_42D
-        zero_position: 3.05860429296518
+        zero_position: -0.3665992422596649
         home_position: -0.0
-        opposite_limit: 5.986935267519172
+        opposite_limit: 0.0
+        working_current: 1000
+        holding_current: 70
+        limit_remap_enabled: true

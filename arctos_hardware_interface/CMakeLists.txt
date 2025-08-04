@@ -19,54 +19,37 @@ find_package(pluginlib REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(std_msgs REQUIRED)
 
-# Add library for services
-add_library(arctos_services SHARED
-  src/arctos_services.cpp
+
+
+
+
+
+
+# Add library for new Arctos MKS hardware interface
+add_library(arctos_mks_hardware_interface SHARED
+  src/arctos_mks_hardware_interface.cpp
 )
 
-target_include_directories(arctos_services
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
-
-ament_target_dependencies(arctos_services
-  rclcpp
-  std_srvs
-  std_msgs
-  arctos_motor_driver
-)
-
-# Add library for hardware interface
-add_library(arctos_interface SHARED
-  src/arctos_interface.cpp
-)
-
-# Link the hardware interface libraries and dependencies
-target_link_libraries(arctos_interface
-  arctos_services
+# Link the Arctos MKS hardware interface libraries and dependencies
+target_link_libraries(arctos_mks_hardware_interface
   ${rclcpp_LIBRARIES}
   ${hardware_interface_LIBRARIES} 
 )
 
 # Include directories
-target_include_directories(arctos_interface
+target_include_directories(arctos_mks_hardware_interface
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 
-# Specify dependencies
-ament_target_dependencies(arctos_interface
+ament_target_dependencies(arctos_mks_hardware_interface
   rclcpp
   can_msgs
   sensor_msgs
   arctos_motor_driver  
   hardware_interface
-  trajectory_msgs
-  realtime_tools
-  std_srvs
-  std_msgs
+  pluginlib
 )
 
 # Export the plugin description file
@@ -74,9 +57,8 @@ pluginlib_export_plugin_description_file(hardware_interface "arctos_hardware_int
 
 # Install targets
 install(TARGETS 
-  arctos_interface
-  arctos_services
-  EXPORT export_arctos_interface
+  arctos_mks_hardware_interface
+  EXPORT export_arctos_hardware
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin
@@ -106,7 +88,7 @@ install(FILES arctos_hardware_interface.xml
 )
 
 # Export package
-ament_export_targets(export_arctos_interface HAS_LIBRARY_TARGET)
+ament_export_targets(export_arctos_hardware HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   rclcpp 
   can_msgs 
